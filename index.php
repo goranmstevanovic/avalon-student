@@ -1,4 +1,4 @@
-<?php  
+﻿<?php  
 			include_once ( "config/core.php");
 ?>
 <!doctype html>
@@ -29,6 +29,53 @@
 	<link rel="stylesheet" href="assets/css/semi-dark.css"/>
 	<link rel="stylesheet" href="assets/css/header-colors.css"/>
 	<title>SMS</title>
+	<link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+	<style>
+	/* Tabovi — uvijek jedan red, ne prelama na mobilnom */
+	#materijaliTab {
+		flex-wrap: nowrap;
+		overflow-x: auto;
+		-webkit-overflow-scrolling: touch;
+		scrollbar-width: none;
+	}
+	#materijaliTab::-webkit-scrollbar { display: none; }
+	#materijaliTab .nav-link { white-space: nowrap; }
+	@media (max-width: 575px) {
+		#materijaliTab .nav-link {
+			font-size: 0.72rem;
+			padding: 7px 8px;
+		}
+		#materijaliTab .nav-link .bx {
+			font-size: 0.85rem !important;
+		}
+	}
+
+	/* Quill editor unutar kartica — spriječi prelijevanje */
+	.esej-quill-editor, .video-quill-editor { width: 100%; min-width: 0; }
+	.esej-quill-editor .ql-toolbar.ql-snow,
+	.video-quill-editor .ql-toolbar.ql-snow {
+		border-radius: 4px 4px 0 0;
+		padding: 4px 6px;
+		line-height: 1;
+	}
+	.esej-quill-editor .ql-toolbar.ql-snow button,
+	.video-quill-editor .ql-toolbar.ql-snow button {
+		height: 22px;
+		width: 24px;
+		padding: 1px 3px;
+		float: none;
+		display: inline-block;
+	}
+	.esej-quill-editor .ql-container.ql-snow,
+	.video-quill-editor .ql-container.ql-snow {
+		border-radius: 0 0 4px 4px;
+		font-size: 13px;
+	}
+	.esej-quill-editor .ql-editor,
+	.video-quill-editor .ql-editor {
+		min-height: 80px;
+	}
+	</style>
 </head>
 
 <body>
@@ -287,6 +334,16 @@
 					$domaci_audio_lista = $domaci_audio_obj->read_visible_for_djak($moj_id)->fetchAll(PDO::FETCH_ASSOC);
 					// ===================== KRAJ DOMAĆI AUDIO logike =====================
 
+					// ===================== DOMAĆI ESEJ - logika =====================
+					$domaci_esej_obj = new domaci_esej($db);
+					$domaci_esej_lista = $domaci_esej_obj->read_visible_for_djak($moj_id)->fetchAll(PDO::FETCH_ASSOC);
+					// ===================== KRAJ DOMAĆI ESEJ logike =====================
+
+					// ===================== DOMAĆI VIDEO - logika =====================
+					$domaci_video_obj = new domaci_video($db);
+					$domaci_video_lista = $domaci_video_obj->read_visible_for_djak($moj_id)->fetchAll(PDO::FETCH_ASSOC);
+					// ===================== KRAJ DOMAĆI VIDEO logike =====================
+
 					// Lista kvizova vidljivih djaku, sa statusom (u toku / zavrsen / istekao rok / moze pokusaj)
 					$kvizovi_lista = $kviz_obj->read_visible_for_djak($moj_id)->fetchAll(PDO::FETCH_ASSOC);
 
@@ -411,6 +468,47 @@
 						}
 					}
 					// ===================== KRAJ KVIZ logike =====================
+
+					// Unified hronološka lista svih domaćih zadataka za prikaz u tabu
+					$domaci_sve = [];
+					foreach ($domaci_audio_lista as $_da) {
+						$_ri  = !empty($_da['rok']) && strtotime($_da['rok']) < time();
+						$_zak = !empty($_da['zakljucan']);
+						$domaci_sve[] = ['tip' => 'audio',
+						                 'aktivan_flag' => (!$_ri && !$_zak) ? 1 : 0,
+						                 'sort_ts' => strtotime($_da['created_at'] ?? '1970-01-01')] + $_da;
+					}
+					foreach ($domaci_esej_lista as $_de) {
+						$_ri     = !empty($_de['rok']) && strtotime($_de['rok']) < time();
+						$_zak    = !empty($_de['zakljucan']);
+						$_ima    = !empty($_de['odgovor_tekst']);
+						$_ocenjen = $_ima && $_de['ocena_poeni'] !== null;
+						$domaci_sve[] = ['tip' => 'esej',
+						                 'aktivan_flag' => (!$_ri && !$_zak && !$_ocenjen) ? 1 : 0,
+						                 'sort_ts' => strtotime($_de['created_at'] ?? '1970-01-01')] + $_de;
+					}
+					foreach ($domaci_video_lista as $_dv) {
+						$_ri     = !empty($_dv['rok']) && strtotime($_dv['rok']) < time();
+						$_zak    = !empty($_dv['zakljucan']);
+						$_ima    = !empty($_dv['odgovor_tekst']);
+						$_ocenjen = $_ima && $_dv['ocena_poeni'] !== null;
+						$domaci_sve[] = ['tip' => 'video',
+						                 'aktivan_flag' => (!$_ri && !$_zak && !$_ocenjen) ? 1 : 0,
+						                 'sort_ts' => strtotime($_dv['created_at'] ?? '1970-01-01')] + $_dv;
+					}
+					foreach ($kvizovi_lista as $_kv) {
+						$domaci_sve[] = ['tip' => 'kviz',
+						                 'aktivan_flag' => ($_kv['moze_pokusaj'] || $_kv['u_toku']) ? 1 : 0,
+						                 'sort_ts' => strtotime($_kv['created_at'] ?? '1970-01-01')] + $_kv;
+					}
+					usort($domaci_sve, function ($a, $b) {
+						if ($a['aktivan_flag'] !== $b['aktivan_flag']) {
+							return $b['aktivan_flag'] - $a['aktivan_flag'];
+						}
+						return $b['sort_ts'] - $a['sort_ts'];
+					});
+					$domaci_aktivni  = array_values(array_filter($domaci_sve, fn($i) => $i['aktivan_flag'] === 1));
+					$domaci_zavrseni = array_values(array_filter($domaci_sve, fn($i) => $i['aktivan_flag'] === 0));
 					//echo $moj_id;
 					//$moj_id = 3;
 					// ✅ NOVI QUERY (ZA ĐAKA)
@@ -640,17 +738,12 @@
 							<!-- TAB: DOMAĆI ZADACI (audio + kvizovi) -->
 							<div class="tab-pane fade <?= $aktivni_tab === 'kviz' ? 'show active' : '' ?>" id="tab-kviz" role="tabpanel">
 
-								<!-- ===== AUDIO DOMAĆI ZADACI ===== -->
-								<h5 class="mb-3"><i class='bx bx-microphone text-danger'></i> Audio domaći zadaci</h5>
-
-								<?php if (empty($domaci_audio_lista)): ?>
-									<div class="alert alert-info mb-4">Nema audio domaćih zadataka.</div>
-								<?php else: ?>
-									<div class="row mb-4">
-									<?php foreach ($domaci_audio_lista as $da):
+								<?php if (false): // audio sekcija premještena u unificiranu listu
+									foreach ($domaci_audio_lista as $da):
 										$ima_odgovor  = !empty($da['odgovor_filename']);
 										$je_slusao    = !empty($da['slusano_at']);
 										$rok_istekao  = !empty($da['rok']) && strtotime($da['rok']) < time();
+										$zakljucan    = !empty($da['zakljucan']);
 									?>
 										<div class="col-12 col-md-6 col-lg-4 mb-3">
 											<div class="card shadow-sm border-0 h-100">
@@ -660,6 +753,8 @@
 														<strong><?= htmlspecialchars($da['naziv']) ?></strong>
 														<?php if ($ima_odgovor): ?>
 															<span class="badge bg-success ms-2" title="Odgovor poslan"><i class='bx bx-check-circle'></i></span>
+														<?php elseif ($zakljucan): ?>
+															<span class="badge bg-warning text-dark ms-2" title="Zakljuu010Dan"><i class='bx bx-lock-alt'></i></span>
 														<?php elseif ($je_slusao): ?>
 															<span class="badge bg-info text-dark ms-2" title="Poslušano"><i class='bx bx-headphone'></i></span>
 														<?php else: ?>
@@ -702,8 +797,21 @@
 														</div>
 													<?php endif; ?>
 
+													<!-- Ocjena profesora -->
+													<?php if ($ima_odgovor && $da['ocena_poeni'] !== null): ?>
+														<div class="mt-2 p-2 rounded" style="background:#f0f9f0; border-left:3px solid #28a745;">
+															<small class="text-muted d-block mb-1">Ocena profesora:</small>
+															<strong style="font-size:15px; color:#28a745;">
+																<?= (int)$da['ocena_poeni'] ?> / <?= (int)$da['ocena_max'] ?>
+															</strong>
+															<?php if (!empty($da['ocena_komentar'])): ?>
+																<div style="font-size:13px; margin-top:4px;"><?= nl2br(htmlspecialchars($da['ocena_komentar'])) ?></div>
+															<?php endif; ?>
+														</div>
+													<?php endif; ?>
+
 													<!-- Snimanje odgovora -->
-													<?php if (!$rok_istekao): ?>
+													<?php if (!$rok_istekao && !$zakljucan): ?>
 													<div class="mt-3" id="recorder_<?= (int)$da['id'] ?>">
 														<small class="text-muted d-block mb-1">
 															<?= $ima_odgovor ? 'Snimiti ponovo:' : 'Vaš odgovor:' ?>
@@ -734,7 +842,7 @@
 													</div>
 													<?php else: ?>
 														<?php if (!$ima_odgovor): ?>
-															<div class="text-muted mt-2" style="font-size:13px;">Rok za predaju je istekao.</div>
+															<div class="text-muted mt-2" style="font-size:13px;"><?php if ($zakljucan): ?>Zadatak je zaključan.<?php else: ?>Rok za predaju je istekao.<?php endif; ?></div>
 														<?php endif; ?>
 													<?php endif; ?>
 
@@ -745,8 +853,160 @@
 									</div>
 								<?php endif; ?>
 
+								<?php if (false): // sekcije premještene u unificiranu listu ?>
+
+								<?php if (empty($domaci_esej_lista)): ?>
+									<div class="alert alert-info mb-4">Nema esej zadataka.</div>
+								<?php else: ?>
+									<div class="row mb-4">
+									<?php foreach ($domaci_esej_lista as $de):
+										$ima_odgovor = !empty($de['odgovor_tekst']);
+										$rok_istekao = !empty($de['rok']) && strtotime($de['rok']) < time();
+										$zakljucan   = !empty($de['zakljucan']);
+										$je_ocenjen  = $ima_odgovor && $de['ocena_poeni'] !== null;
+										$moze_pisati = !$rok_istekao && !$zakljucan && !$je_ocenjen;
+									?>
+										<div class="col-12 col-md-6 col-lg-4 mb-3">
+											<div class="card shadow-sm border-0 h-100">
+												<div class="card-body" style="padding:14px 14px 12px;">
+
+													<!-- Uvijek vidljivo: naslov + oznake -->
+													<div class="d-flex justify-content-between align-items-start">
+														<strong style="font-size:0.93rem; line-height:1.3;"><?= htmlspecialchars($de['naziv']) ?></strong>
+														<div class="d-flex gap-1 ms-2 flex-shrink-0">
+															<?php if (!empty($de['komentar_html'])): ?>
+																<span class="badge bg-info text-dark" title="Profesor komentarisao"><i class='bx bx-comment-dots'></i></span>
+															<?php endif; ?>
+															<?php if ($ima_odgovor): ?>
+																<span class="badge bg-success" title="Odgovor poslan"><i class='bx bx-check-circle'></i></span>
+															<?php elseif ($zakljucan): ?>
+																<span class="badge bg-warning text-dark" title="Zaključano"><i class='bx bx-lock-alt'></i></span>
+															<?php else: ?>
+																<span class="badge bg-secondary">Novo</span>
+															<?php endif; ?>
+														</div>
+													</div>
+
+													<!-- Uvijek vidljivo: opis -->
+													<?php if (!empty($de['opis'])): ?>
+														<div class="text-muted mt-1" style="font-size:12px; white-space:pre-wrap; line-height:1.4;"><?= htmlspecialchars($de['opis']) ?></div>
+													<?php endif; ?>
+
+													<!-- Uvijek vidljivo: rok -->
+													<?php if (!empty($de['rok'])): ?>
+														<div class="mt-1" style="font-size:12px; <?= $rok_istekao ? 'color:#dc3545; font-weight:500;' : 'color:#666;' ?>">
+															⏳ <?= date('d.m.Y H:i', strtotime($de['rok'])) ?><?= $rok_istekao ? ' (istekao)' : '' ?>
+														</div>
+													<?php endif; ?>
+
+													<!-- Toggle dugme -->
+													<button type="button"
+															class="btn btn-link btn-sm px-0 mt-2 esej-toggle-btn"
+															data-bs-toggle="collapse"
+															data-bs-target="#esej-more-<?= (int)$de['id'] ?>"
+															style="font-size:12px; text-decoration:none; color:#0d6efd;">
+														<i class='bx bx-chevron-down'></i> Vidi više
+													</button>
+
+													<!-- Kolapsibilna sekcija -->
+													<div class="collapse" id="esej-more-<?= (int)$de['id'] ?>">
+
+														<?php if ($ima_odgovor): ?>
+															<div class="mt-2">
+																<small class="text-muted d-block mb-1">Poslan <?= date('d.m.Y', strtotime($de['poslato_at'])) ?>:</small>
+																<div class="ql-snow bg-light rounded" style="max-height:140px; overflow-y:auto;">
+																	<div class="ql-editor" style="font-size:13px; padding:8px 12px;">
+																		<?= $de['odgovor_tekst'] ?>
+																	</div>
+																</div>
+															</div>
+														<?php endif; ?>
+
+														<?php if ($ima_odgovor && $de['ocena_poeni'] !== null): ?>
+															<div class="mt-2 p-2 rounded" style="background:#f0f9f0; border-left:3px solid #28a745;">
+																<small class="text-muted d-block mb-1">Ocena profesora:</small>
+																<strong style="font-size:15px; color:#28a745;">
+																	<?= (int)$de['ocena_poeni'] ?> / <?= (int)$de['ocena_max'] ?>
+																</strong>
+																<?php if (!empty($de['ocena_komentar'])): ?>
+																	<div style="font-size:13px; margin-top:4px;"><?= nl2br(htmlspecialchars($de['ocena_komentar'])) ?></div>
+																<?php endif; ?>
+															</div>
+														<?php endif; ?>
+
+														<?php if (!empty($de['komentar_html'])): ?>
+															<div class="mt-2 rounded" style="border-left:3px solid #dc3545; background:#fff8f8;">
+																<small class="text-muted d-block mb-1 pt-2 px-2"><i class='bx bx-comment-edit'></i> Komentar profesora:</small>
+																<div class="ql-snow">
+																	<div class="ql-editor" style="font-size:13px; padding:4px 12px 8px;">
+																		<?= $de['komentar_html'] ?>
+																	</div>
+																</div>
+															</div>
+														<?php endif; ?>
+
+														<?php if ($moze_pisati): ?>
+															<div class="mt-3">
+																<small class="text-muted d-block mb-1">
+																	<?= $ima_odgovor ? 'Izmeni odgovor:' : 'Vaš odgovor:' ?>
+																	<span class="esej-nacrt-badge badge bg-warning text-dark ms-1"
+																		  data-id="<?= (int)$de['id'] ?>"
+																		  style="display:none; font-size:10px; vertical-align:middle;">nacrt</span>
+																</small>
+																<div id="esej-editor-<?= (int)$de['id'] ?>"
+																	 class="esej-quill-editor"
+																	 data-id="<?= (int)$de['id'] ?>"
+																	 data-init="<?= htmlspecialchars($de['odgovor_tekst'] ?? '') ?>"></div>
+																<div class="mt-2 d-flex align-items-center gap-2 flex-wrap">
+																	<button type="button"
+																			class="btn btn-sm btn-primary esej-posalji-btn"
+																			data-id="<?= (int)$de['id'] ?>">
+																		<i class='bx bx-send'></i>
+																		<?= $ima_odgovor ? 'Ažurirati' : 'Pošalji profesoru' ?>
+																	</button>
+																	<button type="button"
+																			class="btn btn-sm btn-outline-secondary esej-snimi-btn"
+																			data-id="<?= (int)$de['id'] ?>">
+																		<i class='bx bx-save'></i> Snimi nacrt
+																	</button>
+																	<button type="button"
+																			class="btn btn-sm btn-outline-danger esej-brisi-nacrt-btn"
+																			data-id="<?= (int)$de['id'] ?>"
+																			data-init="<?= htmlspecialchars($de['odgovor_tekst'] ?? '') ?>"
+																			style="display:none;">
+																		<i class='bx bx-trash'></i> Briši nacrt
+																	</button>
+																	<span class="esej-ok text-success small" data-id="<?= (int)$de['id'] ?>" style="display:none;">
+																		<i class='bx bx-check-circle'></i> Poslato
+																	</span>
+																	<span class="esej-nacrt-ok text-secondary small" data-id="<?= (int)$de['id'] ?>" style="display:none;">
+																		<i class='bx bx-check'></i> Nacrt snimljen
+																	</span>
+																</div>
+																<div class="esej-error text-danger small mt-1" data-id="<?= (int)$de['id'] ?>" style="display:none;"></div>
+															</div>
+														<?php elseif ($je_ocenjen): ?>
+															<div class="text-muted pt-2" style="font-size:13px;">
+																<i class='bx bx-lock-alt'></i> Zadatak je ocenjen — izmena nije moguća.
+															</div>
+														<?php elseif (!$ima_odgovor): ?>
+															<div class="text-muted pt-2" style="font-size:13px;">
+																<?= $zakljucan ? 'Zadatak je zaključan.' : 'Rok za predaju je istekao.' ?>
+															</div>
+														<?php endif; ?>
+
+													</div><!-- /.collapse -->
+
+												</div>
+											</div>
+										</div>
+									<?php endforeach; ?>
+									</div>
+								<?php endif; ?>
+
 								<hr class="my-4">
 								<h5 class="mb-3"><i class='bx bx-help-circle text-primary'></i> Kvizovi</h5>
+								<?php endif; // end if(false) sekcije ?>
 
 								<?php if ($otvoreni_kviz && $otvoreni_pokusaj && $otvoreni_kviz['u_toku']) { ?>
 
@@ -986,68 +1246,425 @@
 
 								<?php } else { ?>
 
-									<!-- LISTA DOSTUPNIH KVIZOVA -->
-									<?php if (empty($kvizovi_lista)) { ?>
-										<div class="alert alert-info">Nema dostupnih kvizova.</div>
-									<?php } else { ?>
+									<?php if (empty($domaci_sve)): ?>
+										<div class="alert alert-info">Nema domaćih zadataka.</div>
+									<?php else: ?>
+										<?php
+										$n_aktivnih  = count($domaci_aktivni);
+										$n_zavrsenih = count($domaci_zavrseni);
+										$u_kolapsu   = false;
+										?>
+										<?php if ($n_aktivnih === 0): ?>
+											<p class="text-muted small mb-3"><i class='bx bx-info-circle'></i> Nema aktivnih domaćih zadataka.</p>
+										<?php else: ?>
 										<div class="row">
-											<?php foreach ($kvizovi_lista as $kv) { ?>
-												<div class="col-12 col-md-6 col-lg-4 mb-3">
-													<div class="card shadow-sm border-0 h-100">
-														<div class="card-body d-flex flex-column">
-															<strong><?= htmlspecialchars($kv['naziv']) ?></strong>
+										<?php endif; ?>
+										<?php foreach ($domaci_sve as $item):
+											$tip      = $item['tip'];
+											$inactive = ($item['aktivan_flag'] === 0);
+											if ($inactive && !$u_kolapsu):
+												$u_kolapsu = true;
+										?>
+											<?php if ($n_aktivnih > 0): ?>
+											</div><!-- /aktivni-row -->
+											<?php endif; ?>
+											<div class="mt-3">
+												<button type="button"
+														class="btn btn-outline-secondary btn-sm"
+														data-bs-toggle="collapse"
+														data-bs-target="#domaci-zavrseni-collapse"
+														aria-expanded="false">
+													<i class='bx bx-check-double'></i> Završeni
+													<span class="badge bg-secondary ms-1"><?= $n_zavrsenih ?></span>
+												</button>
+											</div>
+											<div class="collapse" id="domaci-zavrseni-collapse">
+											<div class="row mt-3">
+										<?php   endif; ?>
 
-															<?php if (!empty($kv['opis'])) { ?>
-																<div class="text-muted mt-1" style="font-size:13px;"><?= nl2br(htmlspecialchars($kv['opis'])) ?></div>
-															<?php } ?>
+											<div class="<?= ($tip === 'esej' || $tip === 'video') ? 'col-12' : 'col-12 col-md-6 col-lg-4' ?> mb-3">
 
-															<div class="mt-2" style="font-size:13px;">
-																📝 <?= (int)$kv['broj_pitanja'] ?> <?= $kv['broj_pitanja'] == 1 ? 'pitanje' : 'pitanja' ?>
+											<?php if ($tip === 'audio'):
+												$da = $item;
+												$ima_odgovor  = !empty($da['odgovor_filename']);
+												$je_slusao    = !empty($da['slusano_at']);
+												$rok_istekao  = !empty($da['rok']) && strtotime($da['rok']) < time();
+												$zakljucan    = !empty($da['zakljucan']);
+											?>
+												<div class="card shadow-sm border-0 h-100">
+													<div class="card-body d-flex flex-column">
+														<div class="mb-1"><span class="badge bg-warning text-dark" style="font-size:10px;"><i class='bx bx-microphone'></i> Audio</span></div>
+														<div class="d-flex justify-content-between align-items-start mb-1">
+															<strong><?= htmlspecialchars($da['naziv']) ?></strong>
+															<?php if ($ima_odgovor): ?>
+																<span class="badge bg-success ms-2" title="Odgovor poslan"><i class='bx bx-check-circle'></i></span>
+															<?php elseif ($zakljucan): ?>
+																<span class="badge bg-warning text-dark ms-2" title="Zaključano"><i class='bx bx-lock-alt'></i></span>
+															<?php elseif ($je_slusao): ?>
+																<span class="badge bg-info text-dark ms-2" title="Poslušano"><i class='bx bx-headphone'></i></span>
+															<?php else: ?>
+																<span class="badge bg-secondary ms-2">Novo</span>
+															<?php endif; ?>
+														</div>
+														<?php if (!empty($da['opis'])): ?>
+															<div class="text-muted mb-2" style="font-size:13px;"><?= nl2br(htmlspecialchars($da['opis'])) ?></div>
+														<?php endif; ?>
+														<?php if (!empty($da['rok'])): ?>
+															<div style="font-size:13px; <?= $rok_istekao ? 'color:#dc3545;' : '' ?>">
+																⏳ Rok: <?= date('d.m.Y H:i', strtotime($da['rok'])) ?><?= $rok_istekao ? ' (istekao)' : '' ?>
 															</div>
-
-															<?php if (!empty($kv['vreme_ogranicenje_min'])) { ?>
-																<div style="font-size:13px;">⏱️ Vremensko ograničenje: <?= (int)$kv['vreme_ogranicenje_min'] ?> min</div>
-															<?php } ?>
-
-															<?php if (!empty($kv['rok'])) { ?>
-																<div style="font-size:13px; <?= $kv['rok_istekao'] ? 'color:#dc3545;' : '' ?>">
-																	⏳ Rok: <?= date('d.m.Y H:i', strtotime($kv['rok'])) ?>
-																	<?= $kv['rok_istekao'] ? ' (istekao)' : '' ?>
+														<?php endif; ?>
+														<?php if (!empty($da['audio_filename'])): ?>
+															<div class="mt-2">
+																<small class="text-muted d-block mb-1">Uputstvo profesora:</small>
+																<audio controls class="w-100" style="height:36px;" data-domaci-id="<?= (int)$da['id'] ?>" onplay="oznaci_slusano(this)">
+																	<source src="serve_domaci_audio.php?file=<?= urlencode($da['audio_filename']) ?>&tip=profesor" type="<?= htmlspecialchars($da['mime_type']) ?>">
+																</audio>
+															</div>
+														<?php endif; ?>
+														<?php if ($ima_odgovor): ?>
+															<div class="mt-2">
+																<small class="text-muted d-block mb-1">Vaš odgovor (poslan <?= date('d.m.Y', strtotime($da['poslato_at'])) ?>):</small>
+																<audio controls class="w-100" style="height:36px;">
+																	<source src="serve_domaci_audio.php?file=<?= urlencode($da['odgovor_filename']) ?>&tip=djaci" type="<?= htmlspecialchars($da['odgovor_mime']) ?>">
+																</audio>
+															</div>
+														<?php endif; ?>
+														<?php if ($ima_odgovor && $da['ocena_poeni'] !== null): ?>
+															<div class="mt-2 p-2 rounded" style="background:#f0f9f0; border-left:3px solid #28a745;">
+																<small class="text-muted d-block mb-1">Ocena profesora:</small>
+																<strong style="font-size:15px; color:#28a745;"><?= (int)$da['ocena_poeni'] ?> / <?= (int)$da['ocena_max'] ?></strong>
+																<?php if (!empty($da['ocena_komentar'])): ?>
+																	<div style="font-size:13px; margin-top:4px;"><?= nl2br(htmlspecialchars($da['ocena_komentar'])) ?></div>
+																<?php endif; ?>
+															</div>
+														<?php endif; ?>
+														<?php if (!$rok_istekao && !$zakljucan): ?>
+														<div class="mt-3" id="recorder_<?= (int)$da['id'] ?>">
+															<small class="text-muted d-block mb-1"><?= $ima_odgovor ? 'Snimiti ponovo:' : 'Vaš odgovor:' ?></small>
+															<div class="d-flex align-items-center gap-2 flex-wrap">
+																<button type="button" class="btn btn-sm btn-outline-danger djak-snimi-btn" data-id="<?= (int)$da['id'] ?>">
+																	<i class='bx bx-microphone'></i> Snimi
+																</button>
+																<button type="button" class="btn btn-sm btn-secondary djak-zaustavi-btn" data-id="<?= (int)$da['id'] ?>" style="display:none;" disabled>
+																	<i class='bx bx-stop'></i> Zaustavi
+																</button>
+																<span class="djak-timer text-danger fw-bold" data-id="<?= (int)$da['id'] ?>"></span>
+															</div>
+															<div class="djak-playback mt-2" data-id="<?= (int)$da['id'] ?>" style="display:none;">
+																<audio controls class="w-100 djak-audio-preview" style="height:36px;" data-id="<?= (int)$da['id'] ?>"></audio>
+																<div class="d-flex gap-2 mt-1">
+																	<button type="button" class="btn btn-sm btn-outline-secondary djak-reset-btn" data-id="<?= (int)$da['id'] ?>">
+																		<i class='bx bx-refresh'></i> Ponovi
+																	</button>
+																	<button type="button" class="btn btn-sm btn-primary djak-posalji-btn" data-id="<?= (int)$da['id'] ?>">
+																		<i class='bx bx-send'></i> Pošalji odgovor
+																	</button>
 																</div>
-															<?php } ?>
-
-															<div style="font-size:13px;">
-																🔁 Pokušaji: <?= count($kv['zavrseni']) ?> / <?= (int)$kv['broj_pokusaja'] ?>
+																<div class="djak-upload-status mt-1" data-id="<?= (int)$da['id'] ?>"></div>
 															</div>
+														</div>
+														<?php else: ?>
+															<?php if (!$ima_odgovor): ?>
+																<div class="text-muted mt-2" style="font-size:13px;"><?php if ($zakljucan): ?>Zadatak je zaključan.<?php else: ?>Rok za predaju je istekao.<?php endif; ?></div>
+															<?php endif; ?>
+														<?php endif; ?>
+													</div>
+												</div>
 
-															<div class="mt-3">
-																<?php if ($kv['u_toku']) { ?>
-																	<a href="index.php?tab=kviz&kviz=<?= (int)$kv['id'] ?>#tab-kviz" class="btn btn-warning btn-sm">
-																		<i class='bx bx-play-circle'></i> Nastavi kviz
-																	</a>
-																<?php } elseif ($kv['moze_pokusaj']) { ?>
-																	<form method="post">
-																		<input type="hidden" name="kviz_action" value="pokreni">
-																		<input type="hidden" name="kviz_id" value="<?= (int)$kv['id'] ?>">
-																		<button type="submit" class="btn btn-primary btn-sm">
-																			<i class='bx bx-help-circle'></i> Pokreni kviz
+											<?php elseif ($tip === 'esej'):
+												$de = $item;
+												$ima_odgovor = !empty($de['odgovor_tekst']);
+												$rok_istekao = !empty($de['rok']) && strtotime($de['rok']) < time();
+												$zakljucan   = !empty($de['zakljucan']);
+												$je_ocenjen  = $ima_odgovor && $de['ocena_poeni'] !== null;
+												$moze_pisati = !$rok_istekao && !$zakljucan && !$je_ocenjen;
+											?>
+												<div class="card shadow-sm border-0 h-100">
+													<div class="card-body" style="padding:14px 14px 12px;">
+														<div class="mb-1"><span class="badge bg-primary" style="font-size:10px;"><i class='bx bx-edit-alt'></i> Esej</span></div>
+														<div class="d-flex justify-content-between align-items-start">
+															<strong style="font-size:0.93rem; line-height:1.3;"><?= htmlspecialchars($de['naziv']) ?></strong>
+															<div class="d-flex gap-1 ms-2 flex-shrink-0">
+																<?php if (!empty($de['komentar_html'])): ?>
+																	<span class="badge bg-info text-dark" title="Profesor komentarisao"><i class='bx bx-comment-dots'></i></span>
+																<?php endif; ?>
+																<?php if ($ima_odgovor): ?>
+																	<span class="badge bg-success" title="Odgovor poslan"><i class='bx bx-check-circle'></i></span>
+																<?php elseif ($zakljucan): ?>
+																	<span class="badge bg-warning text-dark" title="Zaključano"><i class='bx bx-lock-alt'></i></span>
+																<?php else: ?>
+																	<span class="badge bg-secondary">Novo</span>
+																<?php endif; ?>
+															</div>
+														</div>
+														<?php if (!empty($de['opis'])): ?>
+															<div class="text-muted mt-1" style="font-size:12px; white-space:pre-wrap; line-height:1.4;"><?= htmlspecialchars($de['opis']) ?></div>
+														<?php endif; ?>
+														<?php if (!empty($de['rok'])): ?>
+															<div class="mt-1" style="font-size:12px; <?= $rok_istekao ? 'color:#dc3545; font-weight:500;' : 'color:#666;' ?>">
+																⏳ <?= date('d.m.Y H:i', strtotime($de['rok'])) ?><?= $rok_istekao ? ' (istekao)' : '' ?>
+															</div>
+														<?php endif; ?>
+														<button type="button"
+																class="btn btn-link btn-sm px-0 mt-2 esej-toggle-btn"
+																data-bs-toggle="collapse"
+																data-bs-target="#esej-more-<?= (int)$de['id'] ?>"
+																style="font-size:12px; text-decoration:none; color:#0d6efd;">
+															<i class='bx bx-chevron-down'></i> Vidi više
+														</button>
+														<div class="collapse" id="esej-more-<?= (int)$de['id'] ?>">
+															<?php if ($ima_odgovor): ?>
+																<div class="mt-2">
+																	<small class="text-muted d-block mb-1">Poslan <?= date('d.m.Y', strtotime($de['poslato_at'])) ?>:</small>
+																	<div class="ql-snow bg-light rounded" style="max-height:140px; overflow-y:auto;">
+																		<div class="ql-editor" style="font-size:13px; padding:8px 12px;">
+																			<?= $de['odgovor_tekst'] ?>
+																		</div>
+																	</div>
+																</div>
+															<?php endif; ?>
+															<?php if ($ima_odgovor && $de['ocena_poeni'] !== null): ?>
+																<div class="mt-2 p-2 rounded" style="background:#f0f9f0; border-left:3px solid #28a745;">
+																	<small class="text-muted d-block mb-1">Ocena profesora:</small>
+																	<strong style="font-size:15px; color:#28a745;"><?= (int)$de['ocena_poeni'] ?> / <?= (int)$de['ocena_max'] ?></strong>
+																	<?php if (!empty($de['ocena_komentar'])): ?>
+																		<div style="font-size:13px; margin-top:4px;"><?= nl2br(htmlspecialchars($de['ocena_komentar'])) ?></div>
+																	<?php endif; ?>
+																</div>
+															<?php endif; ?>
+															<?php if (!empty($de['komentar_html'])): ?>
+																<div class="mt-2 rounded" style="border-left:3px solid #dc3545; background:#fff8f8;">
+																	<small class="text-muted d-block mb-1 pt-2 px-2"><i class='bx bx-comment-edit'></i> Komentar profesora:</small>
+																	<div class="ql-snow">
+																		<div class="ql-editor" style="font-size:13px; padding:4px 12px 8px;">
+																			<?= $de['komentar_html'] ?>
+																		</div>
+																	</div>
+																</div>
+															<?php endif; ?>
+															<?php if ($moze_pisati): ?>
+																<div class="mt-3">
+																	<small class="text-muted d-block mb-1">
+																		<?= $ima_odgovor ? 'Izmeni odgovor:' : 'Vaš odgovor:' ?>
+																		<span class="esej-nacrt-badge badge bg-warning text-dark ms-1" data-id="<?= (int)$de['id'] ?>" style="display:none; font-size:10px; vertical-align:middle;">nacrt</span>
+																	</small>
+																	<div id="esej-editor-<?= (int)$de['id'] ?>" class="esej-quill-editor" data-id="<?= (int)$de['id'] ?>" data-init="<?= htmlspecialchars($de['odgovor_tekst'] ?? '') ?>"></div>
+																	<div class="mt-2 d-flex align-items-center gap-2 flex-wrap">
+																		<button type="button" class="btn btn-sm btn-primary esej-posalji-btn" data-id="<?= (int)$de['id'] ?>">
+																			<i class='bx bx-send'></i>
+																			<?= $ima_odgovor ? 'Ažurirati' : 'Pošalji profesoru' ?>
 																		</button>
-																	</form>
-																<?php } elseif (!empty($kv['zavrseni'])) { ?>
-																	<a href="index.php?tab=kviz&kviz=<?= (int)$kv['id'] ?>#tab-kviz" class="btn btn-outline-secondary btn-sm">
-																		<i class='bx bx-bar-chart-alt-2'></i> Pregled rezultata
-																	</a>
-																<?php } else { ?>
-																	<span class="badge bg-secondary">Rok istekao</span>
-																<?php } ?>
-															</div>
+																		<button type="button" class="btn btn-sm btn-outline-secondary esej-snimi-btn" data-id="<?= (int)$de['id'] ?>">
+																			<i class='bx bx-save'></i> Snimi nacrt
+																		</button>
+																		<button type="button" class="btn btn-sm btn-outline-danger esej-brisi-nacrt-btn" data-id="<?= (int)$de['id'] ?>" data-init="<?= htmlspecialchars($de['odgovor_tekst'] ?? '') ?>" style="display:none;">
+																			<i class='bx bx-trash'></i> Briši nacrt
+																		</button>
+																		<span class="esej-ok text-success small" data-id="<?= (int)$de['id'] ?>" style="display:none;"><i class='bx bx-check-circle'></i> Poslato</span>
+																		<span class="esej-nacrt-ok text-secondary small" data-id="<?= (int)$de['id'] ?>" style="display:none;"><i class='bx bx-check'></i> Nacrt snimljen</span>
+																	</div>
+																	<div class="esej-error text-danger small mt-1" data-id="<?= (int)$de['id'] ?>" style="display:none;"></div>
+																</div>
+															<?php elseif ($je_ocenjen): ?>
+																<div class="text-muted pt-2" style="font-size:13px;">
+																	<i class='bx bx-lock-alt'></i> Zadatak je ocenjen — izmena nije moguća.
+																</div>
+															<?php elseif (!$ima_odgovor): ?>
+																<div class="text-muted pt-2" style="font-size:13px;">
+																	<?= $zakljucan ? 'Zadatak je zaključan.' : 'Rok za predaju je istekao.' ?>
+																</div>
+															<?php endif; ?>
+														</div><!-- /.collapse -->
+													</div>
+												</div>
 
+											<?php elseif ($tip === 'video'):
+												$dv = $item;
+												$ima_odgovor = !empty($dv['odgovor_tekst']);
+												$rok_istekao = !empty($dv['rok']) && strtotime($dv['rok']) < time();
+												$zakljucan   = !empty($dv['zakljucan']);
+												$je_ocenjen  = $ima_odgovor && $dv['ocena_poeni'] !== null;
+												$moze_pisati = !$rok_istekao && !$zakljucan && !$je_ocenjen;
+											?>
+												<div class="card shadow-sm border-0 h-100">
+													<div class="card-body" style="padding:14px 14px 12px;">
+														<div class="mb-1"><span class="badge" style="font-size:10px; background:#7c3aed; color:#fff;"><i class='bx bx-play-circle'></i> Video</span></div>
+														<div class="d-flex justify-content-between align-items-start">
+															<strong style="font-size:0.93rem; line-height:1.3;"><?= htmlspecialchars($dv['naziv']) ?></strong>
+															<div class="d-flex gap-1 ms-2 flex-shrink-0">
+																<?php if (!empty($dv['komentar_html'])): ?>
+																	<span class="badge bg-info text-dark" title="Profesor komentarisao"><i class='bx bx-comment-dots'></i></span>
+																<?php endif; ?>
+																<?php if ($ima_odgovor): ?>
+																	<span class="badge bg-success" title="Odgovor poslan"><i class='bx bx-check-circle'></i></span>
+																<?php elseif ($zakljucan): ?>
+																	<span class="badge bg-warning text-dark" title="Zaključano"><i class='bx bx-lock-alt'></i></span>
+																<?php else: ?>
+																	<span class="badge bg-secondary">Novo</span>
+																<?php endif; ?>
+															</div>
+														</div>
+														<?php if (!empty($dv['rok'])): ?>
+															<div class="mt-1" style="font-size:12px; <?= $rok_istekao ? 'color:#dc3545; font-weight:500;' : 'color:#666;' ?>">
+																⏳ <?= date('d.m.Y H:i', strtotime($dv['rok'])) ?><?= $rok_istekao ? ' (istekao)' : '' ?>
+															</div>
+														<?php endif; ?>
+
+														<!-- Video (lazy-load) -->
+														<?php if (!empty($dv['video_url'])): ?>
+															<div class="mt-2">
+																<button class="btn btn-outline-secondary btn-sm toggle-video" data-id="domaci_<?= (int)$dv['id'] ?>">
+																	<i class='bx bx-play-circle'></i> Pogledaj video
+																</button>
+																<div id="video_wrap_domaci_<?= (int)$dv['id'] ?>" style="display:none; margin-top:6px;">
+																	<div style="position:relative; padding-bottom:56.25%; height:0; overflow:hidden;">
+																		<iframe data-src="<?= htmlspecialchars($dv['video_url']) ?>"
+																				style="position:absolute; top:0; left:0; width:100%; height:100%; border:0;"
+																				allowfullscreen loading="lazy">
+																		</iframe>
+																	</div>
+																</div>
+															</div>
+														<?php endif; ?>
+
+														<?php if (!empty($dv['opis'])): ?>
+															<div class="text-muted mt-2" style="font-size:12px; white-space:pre-wrap; line-height:1.4;"><?= htmlspecialchars($dv['opis']) ?></div>
+														<?php endif; ?>
+
+														<button type="button"
+																class="btn btn-link btn-sm px-0 mt-2 video-toggle-btn"
+																data-bs-toggle="collapse"
+																data-bs-target="#video-more-<?= (int)$dv['id'] ?>"
+																style="font-size:12px; text-decoration:none; color:#7c3aed;">
+															<i class='bx bx-chevron-down'></i> <?= $ima_odgovor ? 'Vidi odgovor' : 'Odgovori' ?>
+														</button>
+
+														<div class="collapse" id="video-more-<?= (int)$dv['id'] ?>">
+															<?php if ($ima_odgovor): ?>
+																<div class="mt-2">
+																	<small class="text-muted d-block mb-1">Poslan <?= date('d.m.Y', strtotime($dv['poslato_at'])) ?>:</small>
+																	<div class="ql-snow bg-light rounded" style="max-height:140px; overflow-y:auto;">
+																		<div class="ql-editor" style="font-size:13px; padding:8px 12px;">
+																			<?= $dv['odgovor_tekst'] ?>
+																		</div>
+																	</div>
+																</div>
+															<?php endif; ?>
+															<?php if ($ima_odgovor && $dv['ocena_poeni'] !== null): ?>
+																<div class="mt-2 p-2 rounded" style="background:#f0f9f0; border-left:3px solid #28a745;">
+																	<small class="text-muted d-block mb-1">Ocena profesora:</small>
+																	<strong style="font-size:15px; color:#28a745;"><?= (int)$dv['ocena_poeni'] ?> / <?= (int)$dv['ocena_max'] ?></strong>
+																	<?php if (!empty($dv['ocena_komentar'])): ?>
+																		<div style="font-size:13px; margin-top:4px;"><?= nl2br(htmlspecialchars($dv['ocena_komentar'])) ?></div>
+																	<?php endif; ?>
+																</div>
+															<?php endif; ?>
+															<?php if (!empty($dv['komentar_html'])): ?>
+																<div class="mt-2 rounded" style="border-left:3px solid #dc3545; background:#fff8f8;">
+																	<small class="text-muted d-block mb-1 pt-2 px-2"><i class='bx bx-comment-edit'></i> Komentar profesora:</small>
+																	<div class="ql-snow">
+																		<div class="ql-editor" style="font-size:13px; padding:4px 12px 8px;">
+																			<?= $dv['komentar_html'] ?>
+																		</div>
+																	</div>
+																</div>
+															<?php endif; ?>
+															<?php if ($moze_pisati): ?>
+																<div class="mt-3">
+																	<small class="text-muted d-block mb-1">
+																		<?= $ima_odgovor ? 'Izmeni odgovor:' : 'Vaš odgovor:' ?>
+																		<span class="video-nacrt-badge badge bg-warning text-dark ms-1" data-id="<?= (int)$dv['id'] ?>" style="display:none; font-size:10px; vertical-align:middle;">nacrt</span>
+																	</small>
+																	<div id="video-editor-<?= (int)$dv['id'] ?>" class="video-quill-editor" data-id="<?= (int)$dv['id'] ?>" data-init="<?= htmlspecialchars($dv['odgovor_tekst'] ?? '') ?>"></div>
+																	<div class="mt-2 d-flex align-items-center gap-2 flex-wrap">
+																		<button type="button" class="btn btn-sm btn-primary video-posalji-btn" data-id="<?= (int)$dv['id'] ?>">
+																			<i class='bx bx-send'></i>
+																			<?= $ima_odgovor ? 'Ažurirati' : 'Pošalji profesoru' ?>
+																		</button>
+																		<button type="button" class="btn btn-sm btn-outline-secondary video-snimi-btn" data-id="<?= (int)$dv['id'] ?>">
+																			<i class='bx bx-save'></i> Snimi nacrt
+																		</button>
+																		<button type="button" class="btn btn-sm btn-outline-danger video-brisi-nacrt-btn" data-id="<?= (int)$dv['id'] ?>" data-init="<?= htmlspecialchars($dv['odgovor_tekst'] ?? '') ?>" style="display:none;">
+																			<i class='bx bx-trash'></i> Briši nacrt
+																		</button>
+																		<span class="video-ok text-success small" data-id="<?= (int)$dv['id'] ?>" style="display:none;"><i class='bx bx-check-circle'></i> Poslato</span>
+																		<span class="video-nacrt-ok text-secondary small" data-id="<?= (int)$dv['id'] ?>" style="display:none;"><i class='bx bx-check'></i> Nacrt snimljen</span>
+																	</div>
+																	<div class="video-error text-danger small mt-1" data-id="<?= (int)$dv['id'] ?>" style="display:none;"></div>
+																</div>
+															<?php elseif ($je_ocenjen): ?>
+																<div class="text-muted pt-2" style="font-size:13px;">
+																	<i class='bx bx-lock-alt'></i> Zadatak je ocenjen — izmena nije moguća.
+																</div>
+															<?php elseif (!$ima_odgovor): ?>
+																<div class="text-muted pt-2" style="font-size:13px;">
+																	<?= $zakljucan ? 'Zadatak je zaključan.' : 'Rok za predaju je istekao.' ?>
+																</div>
+															<?php endif; ?>
+														</div><!-- /.collapse -->
+													</div>
+												</div>
+
+									<?php elseif ($tip === 'kviz'):
+												$kv = $item;
+											?>
+												<div class="card shadow-sm border-0 h-100">
+													<div class="card-body d-flex flex-column">
+														<div class="mb-1"><span class="badge bg-success" style="font-size:10px;"><i class='bx bx-help-circle'></i> Kviz</span></div>
+														<strong><?= htmlspecialchars($kv['naziv']) ?></strong>
+														<?php if (!empty($kv['opis'])) { ?>
+															<div class="text-muted mt-1" style="font-size:13px;"><?= nl2br(htmlspecialchars($kv['opis'])) ?></div>
+														<?php } ?>
+														<div class="mt-2" style="font-size:13px;">
+															📝 <?= (int)$kv['broj_pitanja'] ?> <?= $kv['broj_pitanja'] == 1 ? 'pitanje' : 'pitanja' ?>
+														</div>
+														<?php if (!empty($kv['vreme_ogranicenje_min'])) { ?>
+															<div style="font-size:13px;">⏱️ Vremensko ograničenje: <?= (int)$kv['vreme_ogranicenje_min'] ?> min</div>
+														<?php } ?>
+														<?php if (!empty($kv['rok'])) { ?>
+															<div style="font-size:13px; <?= $kv['rok_istekao'] ? 'color:#dc3545;' : '' ?>">
+																⏳ Rok: <?= date('d.m.Y H:i', strtotime($kv['rok'])) ?>
+																<?= $kv['rok_istekao'] ? ' (istekao)' : '' ?>
+															</div>
+														<?php } ?>
+														<div style="font-size:13px;">
+															🔁 Pokušaji: <?= count($kv['zavrseni']) ?> / <?= (int)$kv['broj_pokusaja'] ?>
+														</div>
+														<div class="mt-3">
+															<?php if ($kv['u_toku']) { ?>
+																<a href="index.php?tab=kviz&kviz=<?= (int)$kv['id'] ?>#tab-kviz" class="btn btn-warning btn-sm">
+																	<i class='bx bx-play-circle'></i> Nastavi kviz
+																</a>
+															<?php } elseif ($kv['moze_pokusaj']) { ?>
+																<form method="post">
+																	<input type="hidden" name="kviz_action" value="pokreni">
+																	<input type="hidden" name="kviz_id" value="<?= (int)$kv['id'] ?>">
+																	<button type="submit" class="btn btn-primary btn-sm">
+																		<i class='bx bx-help-circle'></i> Pokreni kviz
+																	</button>
+																</form>
+															<?php } elseif (!empty($kv['zavrseni'])) { ?>
+																<a href="index.php?tab=kviz&kviz=<?= (int)$kv['id'] ?>#tab-kviz" class="btn btn-outline-secondary btn-sm">
+																	<i class='bx bx-bar-chart-alt-2'></i> Pregled rezultata
+																</a>
+															<?php } else { ?>
+																<span class="badge bg-secondary">Rok istekao</span>
+															<?php } ?>
 														</div>
 													</div>
 												</div>
-											<?php } ?>
-										</div>
-									<?php } ?>
+
+											<?php endif; ?>
+											</div>
+										<?php endforeach; ?>
+										<?php if (!$u_kolapsu && $n_aktivnih > 0): ?>
+										</div><!-- /aktivni-row -->
+										<?php elseif ($u_kolapsu): ?>
+										</div><!-- /zavrseni-row -->
+										</div><!-- /collapse -->
+										<?php endif; ?>
+									<?php endif; ?>
 
 								<?php } ?>
 
@@ -1237,6 +1854,7 @@
 	<script>
 		new PerfectScrollbar(".app-container")
 	</script>
+	<script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
 	<script>
 	// Prikaz/sakrivanje iframe-a za video materijale (lazy-load src, da se ne ucitava unapred)
 	$(document).on('click', '.toggle-video', function(){
@@ -1485,6 +2103,257 @@
 		});
 
 	}());
+	</script>
+	<script>
+	// ===== DOMAĆI ESEJ: Quill editori, nacrt (localStorage) i slanje =====
+	var esejEditors = {};
+
+	document.querySelectorAll('.esej-quill-editor').forEach(function (el) {
+		var id       = parseInt(el.dataset.id);
+		var draftKey = 'esej_nacrt_' + id;
+		var q = new Quill(el, {
+			theme: 'snow',
+			placeholder: 'Napišite vaš esej ovde...',
+			modules: {
+				toolbar: [
+					['bold', 'italic', 'underline'],
+					[{ 'list': 'ordered' }, { 'list': 'bullet' }],
+					['clean']
+				]
+			}
+		});
+
+		var draft = localStorage.getItem(draftKey);
+		var init  = el.dataset.init || '';
+		if (draft && draft.trim() !== '') {
+			q.root.innerHTML = draft;
+			var badge    = document.querySelector('.esej-nacrt-badge[data-id="' + id + '"]');
+			if (badge) badge.style.display = 'inline';
+			var brisiBtn = document.querySelector('.esej-brisi-nacrt-btn[data-id="' + id + '"]');
+			if (brisiBtn) brisiBtn.style.display = 'inline-block';
+		} else if (init.trim() !== '') {
+			q.root.innerHTML = init;
+		}
+
+		esejEditors[id] = q;
+	});
+
+	// Collapse toggle — mijenjaj tekst dugmeta
+	document.querySelectorAll('.esej-toggle-btn').forEach(function (btn) {
+		var target = document.querySelector(btn.dataset.bsTarget);
+		if (!target) return;
+		target.addEventListener('show.bs.collapse', function () {
+			btn.innerHTML = "<i class='bx bx-chevron-up'></i> Sakrij";
+		});
+		target.addEventListener('hide.bs.collapse', function () {
+			btn.innerHTML = "<i class='bx bx-chevron-down'></i> Vidi više";
+		});
+	});
+
+	// Snimi nacrt u localStorage
+	$(document).on('click', '.esej-snimi-btn', function () {
+		var id  = parseInt($(this).data('id'));
+		var q   = esejEditors[id];
+		if (!q) return;
+		var draftKey = 'esej_nacrt_' + id;
+		localStorage.setItem(draftKey, q.root.innerHTML);
+		$('.esej-nacrt-ok[data-id="' + id + '"]').show();
+		setTimeout(function () { $('.esej-nacrt-ok[data-id="' + id + '"]').hide(); }, 2500);
+		var badge    = document.querySelector('.esej-nacrt-badge[data-id="' + id + '"]');
+		if (badge) badge.style.display = 'inline';
+		var brisiBtn = document.querySelector('.esej-brisi-nacrt-btn[data-id="' + id + '"]');
+		if (brisiBtn) brisiBtn.style.display = 'inline-block';
+	});
+
+	// Briši nacrt iz localStorage i resetuj editor
+	$(document).on('click', '.esej-brisi-nacrt-btn', function () {
+		var id       = parseInt($(this).data('id'));
+		var initHtml = $(this).data('init') || '';
+		localStorage.removeItem('esej_nacrt_' + id);
+		var q = esejEditors[id];
+		if (q) q.root.innerHTML = initHtml;
+		var badge = document.querySelector('.esej-nacrt-badge[data-id="' + id + '"]');
+		if (badge) badge.style.display = 'none';
+		$(this).hide();
+	});
+
+	// Pošalji profesoru
+	$(document).on('click', '.esej-posalji-btn', function () {
+		var id   = parseInt($(this).data('id'));
+		var q    = esejEditors[id];
+		var $btn = $(this);
+		var $ok  = $('.esej-ok[data-id="' + id + '"]');
+		var $err = $('.esej-error[data-id="' + id + '"]');
+
+		$ok.hide();
+		$err.hide();
+
+		if (!q) { $err.text('Greška editora.').show(); return; }
+
+		if (q.getText().trim() === '') {
+			$err.text('Tekst ne sme biti prazan.').show();
+			return;
+		}
+
+		$btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span>');
+
+		$.ajax({
+			url: 'ajax_odgovori_esej.php',
+			type: 'POST',
+			data: { domaci_id: id, tekst: q.root.innerHTML },
+			success: function (resp) {
+				try {
+					var data = typeof resp === 'string' ? JSON.parse(resp) : resp;
+					if (data.error) {
+						$err.text(data.error).show();
+						$btn.prop('disabled', false).html('<i class="bx bx-send"></i> Pošalji profesoru');
+						return;
+					}
+					// Obriši nacrt — odgovor je sačuvan na serveru
+					localStorage.removeItem('esej_nacrt_' + id);
+					var badge    = document.querySelector('.esej-nacrt-badge[data-id="' + id + '"]');
+					var brisiBtn2 = document.querySelector('.esej-brisi-nacrt-btn[data-id="' + id + '"]');
+					if (badge)     badge.style.display    = 'none';
+					if (brisiBtn2) brisiBtn2.style.display = 'none';
+					$ok.show();
+					setTimeout(function () { $ok.hide(); }, 3000);
+					$btn.prop('disabled', false).html('<i class="bx bx-refresh"></i> Ažurirati');
+				} catch (e) {
+					$err.text('Greška pri čitanju odgovora servera.').show();
+					$btn.prop('disabled', false).html('<i class="bx bx-send"></i> Pošalji profesoru');
+				}
+			},
+			error: function () {
+				$err.text('Greška pri komunikaciji sa serverom.').show();
+				$btn.prop('disabled', false).html('<i class="bx bx-send"></i> Pošalji profesoru');
+			}
+		});
+	});
+	</script>
+	<script>
+	// ===== DOMAĆI VIDEO: Quill editori, nacrt (localStorage) i slanje =====
+	var videoEditors = {};
+
+	document.querySelectorAll('.video-quill-editor').forEach(function (el) {
+		var id       = parseInt(el.dataset.id);
+		var draftKey = 'video_nacrt_' + id;
+		var q = new Quill(el, {
+			theme: 'snow',
+			placeholder: 'Napišite vaš odgovor ovde...',
+			modules: {
+				toolbar: [
+					['bold', 'italic', 'underline'],
+					[{ 'list': 'ordered' }, { 'list': 'bullet' }],
+					['clean']
+				]
+			}
+		});
+
+		var draft = localStorage.getItem(draftKey);
+		var init  = el.dataset.init || '';
+		if (draft && draft.trim() !== '') {
+			q.root.innerHTML = draft;
+			var badge    = document.querySelector('.video-nacrt-badge[data-id="' + id + '"]');
+			if (badge) badge.style.display = 'inline';
+			var brisiBtn = document.querySelector('.video-brisi-nacrt-btn[data-id="' + id + '"]');
+			if (brisiBtn) brisiBtn.style.display = 'inline-block';
+		} else if (init.trim() !== '') {
+			q.root.innerHTML = init;
+		}
+
+		videoEditors[id] = q;
+	});
+
+	// Collapse toggle — mijenjaj tekst dugmeta
+	document.querySelectorAll('.video-toggle-btn').forEach(function (btn) {
+		var target = document.querySelector(btn.dataset.bsTarget);
+		if (!target) return;
+		var originalHtml = btn.innerHTML;
+		target.addEventListener('show.bs.collapse', function () {
+			btn.innerHTML = "<i class='bx bx-chevron-up'></i> Sakrij";
+		});
+		target.addEventListener('hide.bs.collapse', function () {
+			btn.innerHTML = originalHtml;
+		});
+	});
+
+	// Snimi nacrt u localStorage
+	$(document).on('click', '.video-snimi-btn', function () {
+		var id  = parseInt($(this).data('id'));
+		var q   = videoEditors[id];
+		if (!q) return;
+		localStorage.setItem('video_nacrt_' + id, q.root.innerHTML);
+		$('.video-nacrt-ok[data-id="' + id + '"]').show();
+		setTimeout(function () { $('.video-nacrt-ok[data-id="' + id + '"]').hide(); }, 2500);
+		var badge    = document.querySelector('.video-nacrt-badge[data-id="' + id + '"]');
+		if (badge) badge.style.display = 'inline';
+		var brisiBtn = document.querySelector('.video-brisi-nacrt-btn[data-id="' + id + '"]');
+		if (brisiBtn) brisiBtn.style.display = 'inline-block';
+	});
+
+	// Briši nacrt
+	$(document).on('click', '.video-brisi-nacrt-btn', function () {
+		var id       = parseInt($(this).data('id'));
+		var initHtml = $(this).data('init') || '';
+		localStorage.removeItem('video_nacrt_' + id);
+		var q = videoEditors[id];
+		if (q) q.root.innerHTML = initHtml;
+		var badge = document.querySelector('.video-nacrt-badge[data-id="' + id + '"]');
+		if (badge) badge.style.display = 'none';
+		$(this).hide();
+	});
+
+	// Pošalji profesoru
+	$(document).on('click', '.video-posalji-btn', function () {
+		var id   = parseInt($(this).data('id'));
+		var q    = videoEditors[id];
+		var $btn = $(this);
+		var $ok  = $('.video-ok[data-id="' + id + '"]');
+		var $err = $('.video-error[data-id="' + id + '"]');
+
+		$ok.hide();
+		$err.hide();
+
+		if (!q) { $err.text('Greška editora.').show(); return; }
+
+		if (q.getText().trim() === '') {
+			$err.text('Tekst ne sme biti prazan.').show();
+			return;
+		}
+
+		$btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span>');
+
+		$.ajax({
+			url: 'ajax_odgovori_video.php',
+			type: 'POST',
+			data: { domaci_id: id, tekst: q.root.innerHTML },
+			success: function (resp) {
+				try {
+					var data = typeof resp === 'string' ? JSON.parse(resp) : resp;
+					if (data.error) {
+						$err.text(data.error).show();
+						$btn.prop('disabled', false).html('<i class="bx bx-send"></i> Pošalji profesoru');
+						return;
+					}
+					localStorage.removeItem('video_nacrt_' + id);
+					var badge    = document.querySelector('.video-nacrt-badge[data-id="' + id + '"]');
+					var brisiBtn = document.querySelector('.video-brisi-nacrt-btn[data-id="' + id + '"]');
+					if (badge)    badge.style.display    = 'none';
+					if (brisiBtn) brisiBtn.style.display = 'none';
+					$ok.show();
+					setTimeout(function () { $ok.hide(); }, 3000);
+					$btn.prop('disabled', false).html('<i class="bx bx-refresh"></i> Ažurirati');
+				} catch (e) {
+					$err.text('Greška pri čitanju odgovora servera.').show();
+					$btn.prop('disabled', false).html('<i class="bx bx-send"></i> Pošalji profesoru');
+				}
+			},
+			error: function () {
+				$err.text('Greška pri komunikaciji sa serverom.').show();
+				$btn.prop('disabled', false).html('<i class="bx bx-send"></i> Pošalji profesoru');
+			}
+		});
+	});
 	</script>
 	<script>
 	// Odbrojavanje za vremenski ogranicen kviz - automatska predaja kada vreme istekne

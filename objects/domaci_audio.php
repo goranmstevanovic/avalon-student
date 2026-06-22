@@ -12,11 +12,15 @@ class domaci_audio
     // Audio zadaci vidljivi djaku (preko grupa), sa statusom slušanja i odgovora
     public function read_visible_for_djak($djak_id)
     {
-        $query = "SELECT DISTINCT daz.*,
+        $query = "SELECT DISTINCT daz.id, daz.naziv, daz.opis, daz.rok, daz.created_at,
+                         daz.audio_filename, daz.mime_type, daz.zakljucan,
                          dap.slusano_at,
                          dao.poslato_at,
                          dao.audio_filename AS odgovor_filename,
-                         dao.mime_type      AS odgovor_mime
+                         dao.mime_type      AS odgovor_mime,
+                         dao.ocena_poeni,
+                         dao.ocena_max,
+                         dao.ocena_komentar
                   FROM domaci_audio_zadaci daz
                   INNER JOIN domaci_audio_grupe dag ON dag.fk_domaci = daz.id
                   INNER JOIN povezivanje p ON p.fk_grupa = dag.fk_grupa
@@ -71,6 +75,16 @@ class domaci_audio
         $stmt->bindParam(':audio_filename', $audio_filename);
         $stmt->bindParam(':mime_type', $mime_type);
         return $stmt->execute();
+    }
+
+    public function je_zakljucan($domaci_id)
+    {
+        $query = "SELECT zakljucan FROM domaci_audio_zadaci WHERE id = :id AND aktivan = 1 LIMIT 1";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':id', $domaci_id);
+        $stmt->execute();
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row && $row['zakljucan'];
     }
 
     // Proverava da li djak ima pravo na ovaj zadatak (sigurnosna provera pre servinga)

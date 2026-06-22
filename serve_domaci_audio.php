@@ -22,8 +22,8 @@ if (!$tip || !$file) {
     exit('Neispravan zahtev.');
 }
 
-// Baza za storage je uvek u test-smszv projektu
-$storage_root = dirname(__DIR__) . '/test-smszv/storage/domaci/';
+// DOCUMENTS_ROOT u .env pokazuje na root admin app-a (gdje je storage)
+$storage_root = rtrim($_ENV['DOCUMENTS_ROOT'], '/') . '/storage/domaci/';
 $putanja = $storage_root . $tip . '/' . $file;
 
 if (!file_exists($putanja)) {
@@ -40,6 +40,11 @@ $ext_mapa = [
 
 $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
 $content_type = $ext_mapa[$ext] ?? 'application/octet-stream';
+
+// Čisti sve output buffere da ne korumpira audio stream.
+while (ob_get_level() > 0) {
+    ob_end_clean();
+}
 
 header('Content-Type: ' . $content_type);
 header('Content-Length: ' . filesize($putanja));

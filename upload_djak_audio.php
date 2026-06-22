@@ -26,6 +26,11 @@ if (!$domaci_obj->djak_ima_pristup($domaci_id, $djak_id)) {
     exit;
 }
 
+if ($domaci_obj->je_zakljucan($domaci_id)) {
+    echo json_encode(['error' => 'Zadatak je zaključan, predaja nije moguća.']);
+    exit;
+}
+
 if (!isset($_FILES['audio']) || $_FILES['audio']['error'] !== UPLOAD_ERR_OK) {
     $kod = $_FILES['audio']['error'] ?? -1;
     echo json_encode(['error' => "Upload greška (kod {$kod})."]);
@@ -66,7 +71,7 @@ foreach ($ekstenzija_mapa as $m => $e) {
     }
 }
 
-$upload_dir = dirname(__DIR__) . '/test-smszv/storage/domaci/djaci/';
+$upload_dir = rtrim($_ENV['DOCUMENTS_ROOT'], '/') . '/storage/domaci/djaci/';
 if (!is_dir($upload_dir)) {
     mkdir($upload_dir, 0777, true);
 }

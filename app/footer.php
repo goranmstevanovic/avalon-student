@@ -1,0 +1,1 @@
+<p class="mb-0">Copyright © SMS <?= date('Y') ?>. All right reserved.</p>

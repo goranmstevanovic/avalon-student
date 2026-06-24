@@ -161,7 +161,8 @@ class kviz
     // Kvizovi vidljivi djaku - preko grupa kojima je kviz dodeljen i kojima djak pripada
     public function read_visible_for_djak($fk_djak)
     {
-        $query = "SELECT DISTINCT k.*
+        $query = "SELECT DISTINCT k.*,
+                         (SELECT MAX(g.created_at) FROM kviz_grupe g WHERE g.fk_kviz = k.id) AS podeljeno_at
                   FROM " . $this->table_name . " k
                   INNER JOIN kviz_grupe kg ON kg.fk_kviz = k.id
                   INNER JOIN povezivanje p ON p.fk_grupa = kg.fk_grupa

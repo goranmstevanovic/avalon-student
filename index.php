@@ -476,30 +476,26 @@
 						$_zak = !empty($_da['zakljucan']);
 						$domaci_sve[] = ['tip' => 'audio',
 						                 'aktivan_flag' => (!$_ri && !$_zak) ? 1 : 0,
-						                 'sort_ts' => strtotime($_da['created_at'] ?? '1970-01-01')] + $_da;
+						                 'sort_ts' => strtotime($_da['podeljeno_at'] ?? $_da['created_at'] ?? '1970-01-01')] + $_da;
 					}
 					foreach ($domaci_esej_lista as $_de) {
-						$_ri     = !empty($_de['rok']) && strtotime($_de['rok']) < time();
-						$_zak    = !empty($_de['zakljucan']);
-						$_ima    = !empty($_de['odgovor_tekst']);
-						$_ocenjen = $_ima && $_de['ocena_poeni'] !== null;
+						$_ri  = !empty($_de['rok']) && strtotime($_de['rok']) < time();
+						$_zak = !empty($_de['zakljucan']);
 						$domaci_sve[] = ['tip' => 'esej',
-						                 'aktivan_flag' => (!$_ri && !$_zak && !$_ocenjen) ? 1 : 0,
-						                 'sort_ts' => strtotime($_de['created_at'] ?? '1970-01-01')] + $_de;
+						                 'aktivan_flag' => (!$_ri && !$_zak) ? 1 : 0,
+						                 'sort_ts' => strtotime($_de['podeljeno_at'] ?? $_de['created_at'] ?? '1970-01-01')] + $_de;
 					}
 					foreach ($domaci_video_lista as $_dv) {
-						$_ri     = !empty($_dv['rok']) && strtotime($_dv['rok']) < time();
-						$_zak    = !empty($_dv['zakljucan']);
-						$_ima    = !empty($_dv['odgovor_tekst']);
-						$_ocenjen = $_ima && $_dv['ocena_poeni'] !== null;
+						$_ri  = !empty($_dv['rok']) && strtotime($_dv['rok']) < time();
+						$_zak = !empty($_dv['zakljucan']);
 						$domaci_sve[] = ['tip' => 'video',
-						                 'aktivan_flag' => (!$_ri && !$_zak && !$_ocenjen) ? 1 : 0,
-						                 'sort_ts' => strtotime($_dv['created_at'] ?? '1970-01-01')] + $_dv;
+						                 'aktivan_flag' => (!$_ri && !$_zak) ? 1 : 0,
+						                 'sort_ts' => strtotime($_dv['podeljeno_at'] ?? $_dv['created_at'] ?? '1970-01-01')] + $_dv;
 					}
 					foreach ($kvizovi_lista as $_kv) {
 						$domaci_sve[] = ['tip' => 'kviz',
 						                 'aktivan_flag' => ($_kv['moze_pokusaj'] || $_kv['u_toku']) ? 1 : 0,
-						                 'sort_ts' => strtotime($_kv['created_at'] ?? '1970-01-01')] + $_kv;
+						                 'sort_ts' => strtotime($_kv['podeljeno_at'] ?? $_kv['created_at'] ?? '1970-01-01')] + $_kv;
 					}
 					usort($domaci_sve, function ($a, $b) {
 						if ($a['aktivan_flag'] !== $b['aktivan_flag']) {

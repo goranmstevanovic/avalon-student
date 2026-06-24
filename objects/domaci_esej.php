@@ -12,6 +12,7 @@ class domaci_esej
     public function read_visible_for_djak($djak_id)
     {
         $query = "SELECT DISTINCT dez.id, dez.naziv, dez.opis, dez.rok, dez.created_at, dez.zakljucan,
+                         (SELECT MAX(g.created_at) FROM domaci_esej_grupe g WHERE g.fk_domaci = dez.id) AS podeljeno_at,
                          deo.tekst AS odgovor_tekst,
                          deo.komentar_html,
                          deo.poslato_at,

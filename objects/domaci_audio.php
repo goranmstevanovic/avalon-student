@@ -14,6 +14,7 @@ class domaci_audio
     {
         $query = "SELECT DISTINCT daz.id, daz.naziv, daz.opis, daz.rok, daz.created_at,
                          daz.audio_filename, daz.mime_type, daz.zakljucan,
+                         (SELECT MAX(g.created_at) FROM domaci_audio_grupe g WHERE g.fk_domaci = daz.id) AS podeljeno_at,
                          dap.slusano_at,
                          dao.poslato_at,
                          dao.audio_filename AS odgovor_filename,

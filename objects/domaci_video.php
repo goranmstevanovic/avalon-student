@@ -12,6 +12,7 @@ class domaci_video
     public function read_visible_for_djak($djak_id)
     {
         $query = "SELECT DISTINCT dvz.id, dvz.naziv, dvz.video_url, dvz.opis, dvz.rok, dvz.created_at, dvz.zakljucan,
+                         (SELECT MAX(g.created_at) FROM domaci_video_grupe g WHERE g.fk_domaci = dvz.id) AS podeljeno_at,
                          dvo.tekst AS odgovor_tekst,
                          dvo.komentar_html,
                          dvo.poslato_at,

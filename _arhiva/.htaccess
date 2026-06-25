@@ -1,0 +1,13 @@
+# Arhiva neiskoriscenih PHP fajlova.
+# Blokiramo SVE HTTP pozive ka ovom folderu — samo fajl sistem pristup.
+
+<IfModule mod_authz_core.c>
+    # Apache 2.4+
+    Require all denied
+</IfModule>
+
+<IfModule !mod_authz_core.c>
+    # Apache 2.2 fallback
+    Order deny,allow
+    Deny from all
+</IfModule>

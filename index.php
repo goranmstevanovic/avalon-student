@@ -518,6 +518,8 @@
 						d.ekstenzija,
 						d.je_video,
 						d.video_url,
+						d.je_slobodni_link,
+						d.link_url,
 						dp.pravo_pregled,
 						dp.pravo_download
 
@@ -541,15 +543,16 @@
 					$stmt->bindParam(":djak_id", $moj_id);
 					$stmt->execute();
 
-					// grupisanje po mesecima - fajlovi i video linkovi idu u odvojene tabove
+					// grupisanje po mesecima - fajlovi idu u jedan tab, video i slobodni linkovi
+					// (obe vrste "otvori umesto downloaduj") zajedno u drugi
 					$dokumenti_po_mesecima = [];
-					$video_po_mesecima = [];
+					$linkovi_po_mesecima = [];
 
 					while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
 						$mesec = date('Y-m', strtotime($row['created_at']));
 
-						if (!empty($row['je_video'])) {
-							$video_po_mesecima[$mesec][] = $row;
+						if (!empty($row['je_video']) || !empty($row['je_slobodni_link'])) {
+							$linkovi_po_mesecima[$mesec][] = $row;
 						} else {
 							$dokumenti_po_mesecima[$mesec][] = $row;
 						}
@@ -568,8 +571,8 @@
 								</button>
 							</li>
 							<li class="nav-item" role="presentation">
-								<button class="nav-link" id="tab-video-btn" data-bs-toggle="tab" data-bs-target="#tab-video" type="button" role="tab" title="Video">
-									<i class='bx bx-video fs-5'></i> Video
+								<button class="nav-link" id="tab-linkovi-btn" data-bs-toggle="tab" data-bs-target="#tab-linkovi" type="button" role="tab" title="Linkovi">
+									<i class='bx bx-link fs-5'></i> Linkovi
 								</button>
 							</li>
 							<li class="nav-item" role="presentation">
@@ -661,14 +664,14 @@
 
 							</div>
 
-							<!-- TAB: VIDEO (je_video = 1) -->
-							<div class="tab-pane fade" id="tab-video" role="tabpanel">
+							<!-- TAB: LINKOVI (je_video = 1 ili je_slobodni_link = 1) -->
+							<div class="tab-pane fade" id="tab-linkovi" role="tabpanel">
 
-								<?php if (empty($video_po_mesecima)) { ?>
-									<div class="alert alert-info">Nema video materijala za prikaz.</div>
+								<?php if (empty($linkovi_po_mesecima)) { ?>
+									<div class="alert alert-info">Nema linkova za prikaz.</div>
 								<?php } ?>
 
-								<?php foreach ($video_po_mesecima as $mesec => $videi) {
+								<?php foreach ($linkovi_po_mesecima as $mesec => $stavke) {
 
 									$timestamp = strtotime($mesec . "-01");
 									$mesec_naziv = strftime('%B %Y', $timestamp);
@@ -680,7 +683,9 @@
 
 									<div class="row">
 
-										<?php foreach ($videi as $d) { ?>
+										<?php foreach ($stavke as $d) {
+											$je_slobodni_link = !empty($d['je_slobodni_link']);
+										?>
 
 											<div class="col-12 col-md-6 col-lg-4 col-xl-3 mb-3">
 												<div class="card shadow-sm border-0">
@@ -689,7 +694,7 @@
 														<!-- NASLOV -->
 														<div class="d-flex justify-content-between">
 															<strong><?= htmlspecialchars($d['naziv']) ?></strong>
-															<i class='bx bxs-video text-danger'></i>
+															<i class='bx <?= $je_slobodni_link ? 'bx-link text-primary' : 'bxs-video text-danger' ?>'></i>
 														</div>
 
 														<!-- DATUM -->
@@ -704,19 +709,34 @@
 														</div>
 														<?php } ?>
 
-														<!-- AKCIJA: prikazi/sakrij video (lazy-load iframe) -->
-														<?php if($d['pravo_pregled']){ ?>
-															<div class="mt-3">
-																<button class="btn btn-outline-primary btn-sm toggle-video" data-id="<?= $d['id'] ?>">
-																	<i class='bx bx-play-circle'></i> Pogledaj video
-																</button>
-															</div>
-														<?php } ?>
+														<?php if ($je_slobodni_link): ?>
 
-														<!-- skriveni iframe - src se postavlja na klik (lazy-load) -->
-														<div class="ratio ratio-16x9 mt-2" id="video_wrap_<?= $d['id'] ?>" style="display:none;">
-															<iframe src="" data-src="<?= htmlspecialchars(video_embed_url($d['video_url'])) ?>" allowfullscreen frameborder="0"></iframe>
-														</div>
+															<!-- SLOBODNI LINK - otvara se u novom tabu, nema iframe (link/Prezi/LiveWorksheets to i onako blokiraju) -->
+															<?php if($d['pravo_pregled']){ ?>
+																<div class="mt-3">
+																	<a href="<?= htmlspecialchars($d['link_url']) ?>" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary btn-sm">
+																		<i class='bx bx-link-external'></i> Otvori link
+																	</a>
+																</div>
+															<?php } ?>
+
+														<?php else: ?>
+
+															<!-- VIDEO - prikazi/sakrij (lazy-load iframe) -->
+															<?php if($d['pravo_pregled']){ ?>
+																<div class="mt-3">
+																	<button class="btn btn-outline-primary btn-sm toggle-video" data-id="<?= $d['id'] ?>">
+																		<i class='bx bx-play-circle'></i> Pogledaj video
+																	</button>
+																</div>
+															<?php } ?>
+
+															<!-- skriveni iframe - src se postavlja na klik (lazy-load) -->
+															<div class="ratio ratio-16x9 mt-2" id="video_wrap_<?= $d['id'] ?>" style="display:none;">
+																<iframe src="" data-src="<?= htmlspecialchars(video_embed_url($d['video_url'])) ?>" allowfullscreen frameborder="0"></iframe>
+															</div>
+
+														<?php endif; ?>
 
 													</div>
 												</div>

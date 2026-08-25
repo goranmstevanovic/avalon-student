@@ -139,6 +139,8 @@
 					$database = new Database();
 					$db = $database->getConnection();
 
+					include_once 'config/app_settings.php'; // $domaci_zadaci_enabled
+
 					$moj_id = $_SESSION['user_id'];
 
 					// ===================== KVIZ - logika =====================
@@ -344,6 +346,11 @@
 					$domaci_video_lista = $domaci_video_obj->read_visible_for_djak($moj_id)->fetchAll(PDO::FETCH_ASSOC);
 					// ===================== KRAJ DOMAĆI VIDEO logike =====================
 
+					// ===================== DOMAĆI WORDWALL - logika =====================
+					$domaci_wordwall_obj = new domaci_wordwall($db);
+					$domaci_wordwall_lista = $domaci_wordwall_obj->read_visible_for_djak($moj_id)->fetchAll(PDO::FETCH_ASSOC);
+					// ===================== KRAJ DOMAĆI WORDWALL logike =====================
+
 					// Lista kvizova vidljivih djaku, sa statusom (u toku / zavrsen / istekao rok / moze pokusaj)
 					$kvizovi_lista = $kviz_obj->read_visible_for_djak($moj_id)->fetchAll(PDO::FETCH_ASSOC);
 
@@ -492,6 +499,13 @@
 						                 'aktivan_flag' => (!$_ri && !$_zak) ? 1 : 0,
 						                 'sort_ts' => strtotime($_dv['podeljeno_at'] ?? $_dv['created_at'] ?? '1970-01-01')] + $_dv;
 					}
+					foreach ($domaci_wordwall_lista as $_dw) {
+						$_ri  = !empty($_dw['rok']) && strtotime($_dw['rok']) < time();
+						$_zak = !empty($_dw['zakljucan']);
+						$domaci_sve[] = ['tip' => 'wordwall',
+						                 'aktivan_flag' => (!$_ri && !$_zak) ? 1 : 0,
+						                 'sort_ts' => strtotime($_dw['podeljeno_at'] ?? $_dw['created_at'] ?? '1970-01-01')] + $_dw;
+					}
 					foreach ($kvizovi_lista as $_kv) {
 						$domaci_sve[] = ['tip' => 'kviz',
 						                 'aktivan_flag' => ($_kv['moze_pokusaj'] || $_kv['u_toku']) ? 1 : 0,
@@ -575,11 +589,13 @@
 									<i class='bx bx-link fs-5'></i> Linkovi
 								</button>
 							</li>
+							<?php if ($domaci_zadaci_enabled): ?>
 							<li class="nav-item" role="presentation">
 								<button class="nav-link <?= $aktivni_tab === 'kviz' ? 'active' : '' ?>" id="tab-kviz-btn" data-bs-toggle="tab" data-bs-target="#tab-kviz" type="button" role="tab" title="Domaći zadaci">
 									<i class='bx bx-task fs-5'></i> Domaći zadaci
 								</button>
 							</li>
+							<?php endif; ?>
 						</ul>
 
 						<div class="tab-content" id="materijaliTabContent">
@@ -752,6 +768,7 @@
 							</div>
 
 							<!-- TAB: DOMAĆI ZADACI (audio + kvizovi) -->
+							<?php if ($domaci_zadaci_enabled): ?>
 							<div class="tab-pane fade <?= $aktivni_tab === 'kviz' ? 'show active' : '' ?>" id="tab-kviz" role="tabpanel">
 
 								<?php if (false): // audio sekcija premještena u unificiranu listu
@@ -1298,7 +1315,7 @@
 											<div class="row mt-3">
 										<?php   endif; ?>
 
-											<div class="<?= ($tip === 'esej' || $tip === 'video') ? 'col-12' : 'col-12 col-md-6 col-lg-4' ?> mb-3">
+											<div class="<?= ($tip === 'esej' || $tip === 'video' || $tip === 'wordwall') ? 'col-12' : 'col-12 col-md-6 col-lg-4' ?> mb-3">
 
 											<?php if ($tip === 'audio'):
 												$da = $item;
@@ -1622,6 +1639,63 @@
 													</div>
 												</div>
 
+											<?php elseif ($tip === 'wordwall'):
+												$dw = $item;
+												$rok_istekao = !empty($dw['rok']) && strtotime($dw['rok']) < time();
+												$zakljucan   = !empty($dw['zakljucan']);
+												$moze_otvoriti = !$rok_istekao && !$zakljucan;
+												$moje_ime = trim(($_SESSION['firstname'] ?? '') . ' ' . ($_SESSION['lastname'] ?? ''));
+											?>
+												<div class="card shadow-sm border-0 h-100">
+													<div class="card-body" style="padding:14px 14px 12px;">
+														<div class="mb-1"><span class="badge" style="font-size:10px; background:#0ea5e9; color:#fff;"><i class='bx bx-joystick'></i> Wordwall</span></div>
+														<div class="d-flex justify-content-between align-items-start">
+															<strong style="font-size:0.93rem; line-height:1.3;"><?= htmlspecialchars($dw['naziv']) ?></strong>
+															<?php if ($zakljucan): ?>
+																<span class="badge bg-warning text-dark ms-2" title="Zaključano"><i class='bx bx-lock-alt'></i></span>
+															<?php elseif (!empty($dw['otvoreno_at'])): ?>
+																<span class="badge bg-success" title="Otvoreno <?= htmlspecialchars($dw['otvoreno_at']) ?>"><i class='bx bx-check-circle'></i></span>
+															<?php endif; ?>
+														</div>
+														<?php if (!empty($dw['rok'])): ?>
+															<div class="mt-1" style="font-size:12px; <?= $rok_istekao ? 'color:#dc3545; font-weight:500;' : 'color:#666;' ?>">
+																⏳ <?= date('d.m.Y H:i', strtotime($dw['rok'])) ?><?= $rok_istekao ? ' (istekao)' : '' ?>
+															</div>
+														<?php endif; ?>
+														<?php if (!empty($dw['opis'])): ?>
+															<div class="text-muted mt-2" style="font-size:12px; white-space:pre-wrap; line-height:1.4;"><?= htmlspecialchars($dw['opis']) ?></div>
+														<?php endif; ?>
+
+														<?php if ($dw['ocena_poeni'] !== null): ?>
+															<div class="mt-2 p-2 rounded" style="background:#f0f9f0; border-left:3px solid #28a745;">
+																<small class="text-muted d-block mb-1">Ocena profesora:</small>
+																<strong style="font-size:15px; color:#28a745;"><?= (int)$dw['ocena_poeni'] ?> / <?= (int)$dw['ocena_max'] ?></strong>
+																<?php if (!empty($dw['ocena_komentar'])): ?>
+																	<div style="font-size:13px; margin-top:4px;"><?= nl2br(htmlspecialchars($dw['ocena_komentar'])) ?></div>
+																<?php endif; ?>
+															</div>
+														<?php endif; ?>
+
+														<?php if ($moze_otvoriti && !empty($dw['wordwall_url'])): ?>
+															<div class="mt-3">
+																<?php if ($moje_ime !== ''): ?>
+																	<div class="text-muted mb-1" style="font-size:12px;">
+																		<i class='bx bx-id-card'></i> Kada Wordwall zatraži ime, unesi tačno: <strong><?= htmlspecialchars($moje_ime) ?></strong>
+																	</div>
+																<?php endif; ?>
+																<a href="<?= htmlspecialchars($dw['wordwall_url']) ?>" target="_blank" rel="noopener"
+																   class="btn btn-sm btn-primary wordwall-otvori-link" data-id="<?= (int)$dw['id'] ?>">
+																	<i class='bx bx-link-external'></i> Otvori zadatak
+																</a>
+															</div>
+														<?php else: ?>
+															<div class="text-muted mt-2" style="font-size:13px;">
+																<?= $zakljucan ? 'Zadatak je zaključan.' : 'Rok za predaju je istekao.' ?>
+															</div>
+														<?php endif; ?>
+													</div>
+												</div>
+
 									<?php elseif ($tip === 'kviz'):
 												$kv = $item;
 											?>
@@ -1685,6 +1759,7 @@
 								<?php } ?>
 
 							</div>
+							<?php endif; ?>
 
 						</div>
 
@@ -1989,6 +2064,13 @@
 			if (!id) return;
 			$.post('ajax_oznaci_slusano.php', { domaci_id: id });
 		};
+
+		// Wordwall: evidentiraj klik na link, ne blokiraj otvaranje u novom tabu
+		$(document).on('click', '.wordwall-otvori-link', function () {
+			var id = $(this).data('id');
+			if (!id) return;
+			$.post('ajax_otvori_wordwall.php', { domaci_id: id });
+		});
 
 		// Dugme SNIMI
 		$(document).on('click', '.djak-snimi-btn', function () {

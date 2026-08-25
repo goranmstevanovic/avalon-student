@@ -347,14 +347,17 @@ echo "<form class='form-signin' action='".htmlspecialchars($_SERVER["PHP_SELF"])
 
 echo "<input type='hidden' name='csrf_token' value='".$_SESSION['csrf_token']."'>";
 
-$val_email    = isset($_POST['email'])    ? htmlspecialchars(trim($_POST['email']), ENT_QUOTES, 'UTF-8')    : '';
+$val_email    = isset($_POST['email']) ? htmlspecialchars(trim($_POST['email']), ENT_QUOTES, 'UTF-8')
+    : (isset($_GET['email']) ? htmlspecialchars(trim($_GET['email']), ENT_QUOTES, 'UTF-8') : '');
 $val_password = isset($_POST['password']) ? htmlspecialchars($_POST['password'], ENT_QUOTES, 'UTF-8') : '';
 
-echo "<input type='text' name='email' class='form-control' placeholder='Email adresa' value='$val_email' required autofocus>";
+$email_prefilled = empty($_POST) && $val_email !== '';
+
+echo "<input type='text' name='email' class='form-control' placeholder='Email adresa' value='$val_email'" . ($email_prefilled ? "" : " autofocus") . " required>";
 
 echo "
 <div class='password-wrap'>
-    <input type='password' id='password' name='password' class='form-control' placeholder='Lozinka' value='$val_password' required>
+    <input type='password' id='password' name='password' class='form-control' placeholder='Lozinka' value='$val_password'" . ($email_prefilled ? " autofocus" : "") . " required>
     <button type='button' class='toggle-password' onclick='togglePassword()'>
         <i id='toggleIcon' class='glyphicon glyphicon-eye-open'></i>
     </button>

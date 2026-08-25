@@ -5,7 +5,7 @@
 
 
 if(isset($_SESSION['access_level']) && ($_SESSION['access_level']=="Admin" || $_SESSION['access_level']=="Sekretar")){
-    header("Location: {$home_url}admin/index.php?action=logged_in_as_admin");
+    header("Location: {$home_url}index?action=logged_in_as_admin");
 }
 // if $require_login was set and value is 'true'
 else if(isset($require_login) && $require_login==true){

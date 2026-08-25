@@ -625,6 +625,10 @@
 							</li>
 							<li><a class="dropdown-item d-flex align-items-center" href="javascript:;"><i class="bx bx-download fs-5"></i><span>Downloads</span></a>
 							</li> -->
+							<?php if(!empty($_SESSION['impersonating_admin_id'])): ?>
+							<li><a class="dropdown-item d-flex align-items-center" href="<?=$home_url ?>sso_return_admin.php"><i class="bx bx-undo"></i><span>Nazad na admin nalog</span></a>
+							</li>
+							<?php endif; ?>
 							<li>
 								<div class="dropdown-divider mb-0"></div>
 							</li>

@@ -231,36 +231,9 @@ $('textarea').each(function () {
                             $i++;
                             $kartica[$i]["id"]=$row_zaduzenje["id"];
                             $kartica[$i]["fk_grupa"]=$row_zaduzenje["fk_grupa"];
-                            if(!empty($fiksna_cena_za_djake)){
-                                $bazna_cena = (float)$fiksna_cena_za_djake;
-                                $kartica[$i]["popust"] = 0;
-                            } else {
-                                $bazna_cena = $cenovnik->odredi_zaduzenje($row_zaduzenje)["iznos"];
-                                if($popust_djaka > 0){
-                                    $bazna_cena = round($bazna_cena * (1 - $popust_djaka / 100), 2);
-                                }
-                                $kartica[$i]["popust"] = $popust_djaka;
-                            }
-                            // za individualce i poluindividualce
-                           if($row_zaduzenje["velicina"] == 1 OR $row_zaduzenje["velicina"] == 2 ){
-                                if($row_zaduzenje["prisutan"] == 1 OR $row_zaduzenje["opravdao_otsustvo"] == 0){
-                                    $kartica[$i]["iznos"] = $bazna_cena;
-                                }else{
-                                    $kartica[$i]["iznos"] = 0;
-                                }
-                            }else{
-                                if($row_zaduzenje["vrtic"] == 1 ){
-                                    if($row_zaduzenje["prisutan"] == 1){
-                                        $kartica[$i]["iznos"] = $bazna_cena;
-                                    }else{
-                                        $kartica[$i]["iznos"] = 0;
-                                    }
-
-                                }else{
-                                    $kartica[$i]["iznos"] = $bazna_cena;
-                                }
-
-                            }
+                            $naplata_casa = $cenovnik->iznos_casa_za_djaka($row_zaduzenje, $row_zaduzenje["prisutan"], $row_zaduzenje["opravdao_otsustvo"], $fiksna_cena_za_djake, $popust_djaka);
+                            $kartica[$i]["iznos"] = $naplata_casa["iznos"];
+                            $kartica[$i]["popust"] = $naplata_casa["popust"];
 
                             $kartica[$i]["od_datuma"]= date('d.m.Y H:i', strtotime($row_zaduzenje["start"]));
                             $kartica[$i]["do_datuma"]= date('H:i', strtotime($row_zaduzenje["end"]));

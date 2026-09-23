@@ -324,6 +324,45 @@ class cenovnik
         return $row_osnovno_zaduzenje;
     }
 
+    /**
+     * Iznos jednog casa (grupa "po casu") za jednog djaka.
+     *
+     * JEDINO mesto u PHP-u gde se ovo racuna - koriste ga kartica djaka, kartica
+     * porodice i mesecna statistika. Mora da daje isto sto i SQL funkcija
+     * izracunaj_saldo_djak_fn (stored/funkcije.sql), iz koje se puni djaci.saldo_danas.
+     *
+     * $row_cas mora da ima: start, end, uzrast, velicina, nacin_zaduzivanja_grupe, vrtic
+     * Vraca ['iznos' => iznos za naplatu, 'popust' => primenjen popust u % (za prikaz)]
+     */
+    function iznos_casa_za_djaka(array $row_cas, $prisutan, $opravdao_otsustvo, $fiksna_cena_za_djake = null, $popust = 0)
+    {
+        $popust = floatval($popust);
+
+        // fiksna cena grupe ima prednost nad cenovnikom i popustom (isto kao SQL: fiksna_cena_za_djake > 0)
+        if ((float)$fiksna_cena_za_djake > 0) {
+            $cena = (float)$fiksna_cena_za_djake;
+            $popust = 0;
+        } else {
+            $cena = $this->odredi_zaduzenje($row_cas)['iznos'];
+            if ($popust > 0) {
+                $cena = round($cena * (1 - $popust / 100), 2);
+            }
+        }
+
+        if ($row_cas['velicina'] == 1 || $row_cas['velicina'] == 2) {
+            // individualci i poluindividualci: naplacuje se osim ako je opravdano odsustvo
+            $naplati = ($prisutan == 1 || $opravdao_otsustvo == 0);
+        } elseif (!empty($row_cas['vrtic'])) {
+            // vrtic: naplacuje se samo ako je dete bilo prisutno
+            $naplati = ($prisutan == 1);
+        } else {
+            // grupe: naplacuje se uvek
+            $naplati = true;
+        }
+
+        return ['iznos' => $naplati ? $cena : 0, 'popust' => $popust];
+    }
+
     function nadji_cenu_osnovnu($fk_velicina_grupe, $fk_platni_razred ,$fk_duzina_casa){
         $query = "SELECT
         iznos

@@ -99,10 +99,13 @@ try {
     $mail->isHTML(true);
     $mail->Subject = 'Verifikacija email adrese';
 
-    $mail->Body = "
-        <h2>SMS System</h2>
+    $posiljalac_html = htmlspecialchars(POSILJALAC);
+    $potpis_html     = mail_potpis_html();
 
-        <p>Poštovani {$user['firstname']},</p>
+    $mail->Body = "
+        <h2>{$posiljalac_html}</h2>
+
+        <p>Pozdrav {$user['firstname']},</p>
 
         <p>Da biste aktivirali svoj nalog, potrebno je da verifikujete email adresu.</p>
 
@@ -123,7 +126,7 @@ try {
         </p>
 
         <hr>
-        <small>SMS System</small>
+        <small>{$potpis_html}</small>
     ";
 
     error_log("Pokusaj slanja maila na: " . $user['email']);

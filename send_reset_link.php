@@ -66,8 +66,6 @@ try {
     $mail->Password = $mailConfig['password'];
     $mail->SMTPSecure = $mailConfig['encryption'];
     $mail->Port = $mailConfig['port'];
-    $mail->CharSet = 'UTF-8';
-    $mail->Encoding = 'base64';
 
     $mail->setFrom($mailConfig['from_email'], $mailConfig['from_name']);
     $mail->addAddress($user['email'], $user['firstname']);
@@ -75,12 +73,9 @@ try {
     $mail->isHTML(true);
     $mail->Subject = 'Reset lozinke';
 
-    $posiljalac_html = htmlspecialchars(POSILJALAC);
-    $potpis_html     = mail_potpis_html();
-
     $mail->Body = "
-        <h2>{$posiljalac_html}</h2>
-        <p>Pozdrav {$user['firstname']},</p>
+        <h2>SMS System</h2>
+        <p>Poštovani {$user['firstname']},</p>
         <p>Kliknite ispod da resetujete lozinku:</p>
         <p>
             <a href='{$link}' style='background:#dc3545;color:white;padding:10px 15px;text-decoration:none;border-radius:5px;'>
@@ -88,8 +83,6 @@ try {
             </a>
         </p>
         <p>Link važi 1 sat.</p>
-        <hr>
-        <small>{$potpis_html}</small>
     ";
 
     $mail->send();

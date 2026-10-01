@@ -18,7 +18,7 @@ body {
 
 .login-logo {
     display: block;
-    width: 55%;
+    width: 76%;
     margin: 0 auto 24px;
 }
 

@@ -74,19 +74,7 @@ extract($row_category_aktuelni_djak);
     ?>
     <tr>
         <td class="text-center">
-           <!-- <a href='dogadjaj.php?id=<?php echo $row_category_sva_prisustva['termin_id']; ?>  '  target="_blank"> -->
-            <a onclick="open_in_new_tab_and_reload('dogadjaj.php?id=<?=$row_category_sva_prisustva['termin_id'] ?>')" href="#">
-            <script>
-            function open_in_new_tab_and_reload(url)
-            {
-            //Open in new tab
-            window.open(url, '_blank');
-            //focus to thet window
-            window.focus();
-            //reload current page
-            location.reload();
-            }
-            </script>
+            <span>
             <?php
                 $datum = substr($termin->start,0,10);
                 $datum = datum_u_nas_datum($datum);
@@ -97,7 +85,7 @@ extract($row_category_aktuelni_djak);
                 $do = substr($termin->kraj, -8,5);
                 echo $datum,"<br/>",$od,"&nbsp;-&nbsp;", $do,"<br/><tab style='color:purple;'><b> Cas po redu: ",$broj_casova+1 ,"</b></tab>";
                 ?>
-            </a>
+            </span>
         </td>
         <td class="text-center">
             <?php

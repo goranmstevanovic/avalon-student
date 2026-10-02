@@ -162,25 +162,14 @@ foreach ($termini as $termin_id => $t) {
    
     echo "<tr style='background-color: {$backcolor}'><td>";
     ?>
-     <a onclick="open_in_new_tab_and_reload('dogadjaj.php?id=<?=$t['id'] ?>')" href="#">
+     <span>
     <?php
     echo $datum;
       if($t['status'] == 2){
         echo "<br><b> Redni broj: ".$brojac_casova."<b>";
     }
     ?>
-     </a>
-    <script>
-                function open_in_new_tab_and_reload(url)
-                {
-                //Open in new tab
-                window.open(url, '_blank');
-                //focus to thet window
-                window.focus();
-                //reload current page
-                location.reload();
-                }
-                </script>
+     </span>
     <?php
     echo "</td>";
     echo "<td>{$status}</td>";

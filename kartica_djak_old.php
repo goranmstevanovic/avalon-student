@@ -482,16 +482,6 @@ $('textarea').each(function () {
 
 
     </script>
-    <script>
-        $(".zaduzenjeLink").click(function(){
-             event.preventDefault();
-            var home_url = "<?php echo $home_url; ?>";
-            var kartica_id = this.getAttribute('data-id');
-            var url = home_url + 'dogadjaj?id=' + kartica_id;
-            window.open(url, '_blank');
-            event.stopPropagation(); // Zaustavlja dalje širenje događaja na roditelje
-        });
-    </script>
             
 
             <script type="text/javascript">

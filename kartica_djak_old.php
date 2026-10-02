@@ -596,8 +596,6 @@ $('textarea').each(function () {
 
 <?php
 
-// include page footer HTML
-include_once "layout_foot1.php";
 ?>
 
 

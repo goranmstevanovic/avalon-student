@@ -60,9 +60,6 @@ $broj_casova = $termin->count_broj_casova_grupa_vreme1($idd);
 <table class='table table-hover table-responsive table-bordered'>
         <tr><th style= "color:red;">Dnevnik rada studentske grupe:</th><th>Jezik: <?=$fk_jezik ?></th><th>Nivo: <?= $nivo ?></th><th>Grupa: <?=$row_grupa['alias'] ?></th>
         <th>Održanih časova : <?=$broj_casova ?></th>
-        <th>
-        <button style="display : inline-block" class="btn btn-danger  pull-right" ><a style="color:white;" href = "kartica_grupa?id=<?php echo $idd; ?> " target='_blank'>Finasijska kartica grupe</a></button>
-        </th>
         </tr>
 </table>
 <?php

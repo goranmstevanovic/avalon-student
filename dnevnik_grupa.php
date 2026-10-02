@@ -38,6 +38,9 @@
 		
         <?php 
 		require_once "config/core.php";
+
+		// provera prijave pre menija i sadrzaja
+		include_once "login_checker.php";
 		include __DIR__ . '/app/sidebar.php'; ?>
 		<!--end sidebar wrapper -->
 		<!--start header -->

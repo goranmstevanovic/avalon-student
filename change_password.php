@@ -44,6 +44,9 @@ if(!$user){
     die("<div class='alert alert-danger'>Korisnik ne postoji.</div>");
 }
 
+// u bazi hash cesto ima razmak na kraju (kao i kod prijave u djak::emailExists)
+$user['password'] = trim($user['password']);
+
 // ❌ proveri staru lozinku
 if(!password_verify($current, $user['password'])){
     die("<div class='alert alert-danger'>Trenutna lozinka nije tačna.</div>");

@@ -1,4 +1,10 @@
 <?php
+// Zastita: samo iz komandne linije (cron na hostingu), nikad iz pregledaca -
+// u ovom portalu je prijavljen korisnik djak, pa ni prijava nije dovoljna.
+if (php_sapi_name() !== 'cli') {
+    http_response_code(403);
+    exit('Samo iz komandne linije.');
+}
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 date_default_timezone_set('Europe/Belgrade');

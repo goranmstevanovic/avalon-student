@@ -1,4 +1,4 @@
-﻿<?php  
+<?php  
 			include_once ( "config/core.php");
 ?>
 <!doctype html>

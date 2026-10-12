@@ -1,3 +1,4 @@
+<?php require_once __DIR__ . '/config/require_login.php'; // samo prijavljeni korisnici ?>
 <?php
 header('Content-Type: text/html; charset=UTF-8');
 ?>

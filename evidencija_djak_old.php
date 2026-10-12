@@ -1,3 +1,4 @@
+<?php require_once __DIR__ . '/config/require_login.php'; // samo prijavljeni korisnici ?>
 
 <?php
 if(isset($_GET['id'])){$idd = $_GET['id']; // echo "Radi se o djaku br:" , $idd;

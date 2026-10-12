@@ -1,3 +1,4 @@
+<?php require_once __DIR__ . '/config/require_login.php'; // samo prijavljeni korisnici ?>
 <html>
 <head>
     <title> Kartica djak </title>

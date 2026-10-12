@@ -70,6 +70,8 @@ class djak
             $this->firstname = $row['firstname'];
             $this->lastname = $row['lastname'];
             $this->role = $row['role'];
+            // trim() samo kao zastita: uzrok (razmak u DEFAULT-u djaci.password)
+            // ispravljen je migracijom 034_djaci_password_bez_razmaka u avalon repou
             $this->password = trim($row['password']);
             $this->status = $row['status'];
             $this->email_verified_at = $row['email_verified_at'];

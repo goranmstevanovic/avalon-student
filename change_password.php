@@ -44,7 +44,9 @@ if(!$user){
     die("<div class='alert alert-danger'>Korisnik ne postoji.</div>");
 }
 
-// u bazi hash cesto ima razmak na kraju (kao i kod prijave u djak::emailExists)
+// trim() samo kao zastita (kao i kod prijave u djak::emailExists): razmak na kraju
+// hash-a dolazio je iz DEFAULT-a djaci.password, ispravljeno migracijom
+// 034_djaci_password_bez_razmaka u avalon repou
 $user['password'] = trim($user['password']);
 
 // ❌ proveri staru lozinku
